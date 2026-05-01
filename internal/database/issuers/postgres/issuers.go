@@ -130,6 +130,9 @@ func (s Store) InsertIssuerRecord(ctx context.Context, issuer issuers.Issuer) er
 }
 
 func (s Store) InsertConfigurationsSupported(ctx context.Context, tenantID string, cs []issuers.CredentialsSupported) error {
+	if len(cs) == 0 {
+		return nil
+	}
 	query := s.sq.
 		Insert(postgres.TblCredentialsSupported).
 		Columns(

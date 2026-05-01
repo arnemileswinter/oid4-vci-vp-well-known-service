@@ -70,7 +70,7 @@ type CredentialsSupported struct {
 	Schema                                 map[string]interface{}
 	Subject                                string
 	Vct                                    *string
-	Claims                                 map[string]interface{}
+	Claims                                 []credential.MetadataClaim
 	Order                                  []string
 	FirstSeen                              time.Time
 	LastSeen                               time.Time
@@ -89,13 +89,13 @@ type CredentialSupportedRow struct {
 	Schema                                 map[string]interface{}
 	Subject                                *string
 	Vct                                    *string
-	Claims                                 map[string]interface{}
+	Claims                                 []credential.MetadataClaim
 	Order                                  []string
 	FirstSeen                              time.Time
 	LastSeen                               time.Time
 }
 
-type ProofTypesSupported map[string]credential.ProofType
+type ProofTypesSupported map[credential.ProofVariant]credential.ProofType
 
 type DescriptiveURL struct {
 	URL             string `json:"url"`

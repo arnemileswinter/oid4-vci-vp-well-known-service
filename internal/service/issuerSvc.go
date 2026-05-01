@@ -34,7 +34,7 @@ func (s IssuerService) GetIssuer(ctx context.Context, tenantID string, withInter
 	for _, supported := range issuer.CredentialsSupported {
 		id := supported.CredentialConfigurationID
 
-		cs[id] = credential.CredentialConfiguration{
+		config := credential.CredentialConfiguration{
 			Format:                               supported.Format,
 			Scope:                                supported.Scope,
 			CryptographicBindingMethodsSupported: supported.CryptographicBindingMethodsSupported,
@@ -45,16 +45,17 @@ func (s IssuerService) GetIssuer(ctx context.Context, tenantID string, withInter
 			Vct:                                  supported.Vct,
 			Claims:                               supported.Claims,
 			Order:                                supported.Order,
-			Schema:                               supported.Schema,
-			Subject:                              supported.Subject,
 		}
 
+		// Internal-only fields: Subject (NATS routing topic) and Schema must not
+		// be exposed on the wallet-facing HTTP endpoint, but issuer-service needs
+		// Subject in the NATS reply to dispatch credential requests.
 		if withInternal {
-			config := cs[id]
 			config.Schema = supported.Schema
 			config.Subject = supported.Subject
-			cs[id] = config
 		}
+
+		cs[id] = config
 	}
 
 	iss := &credential.IssuerMetadata{
@@ -68,11 +69,10 @@ func (s IssuerService) GetIssuer(ctx context.Context, tenantID string, withInter
 		CredentialIdentifiersSupported:    issuer.CredentialIdentifiersSupported,
 		SignedMetadata:                    issuer.SignedMetadata,
 		CredentialConfigurationsSupported: cs,
-		CredentialResponseEncryption:      credential.CredentialRespEnc(*issuer.CredentialResponseEncryption),
 	}
 
 	if issuer.CredentialResponseEncryption != nil {
-		iss.CredentialResponseEncryption = credential.CredentialRespEnc{
+		iss.CredentialResponseEncryption = &credential.CredentialRespEnc{
 			AlgValuesSupported: issuer.CredentialResponseEncryption.AlgValuesSupported,
 			EncValuesSupported: issuer.CredentialResponseEncryption.EncValuesSupported,
 			EncryptionRequired: issuer.CredentialResponseEncryption.EncryptionRequired,
@@ -125,17 +125,20 @@ func (s IssuerService) UpsertIssuer(ctx context.Context, tenantID string, issuer
 			BatchCredentialEndpoint:    issuer.BatchCredentialEndpoint,
 			DeferredCredentialEndpoint: issuer.DeferredCredentialEndpoint,
 			NotificationEndpoint:       issuer.NotificationEndpoint,
-			CredentialResponseEncryption: &issuers.CredentialRespEnc{
-				AlgValuesSupported: issuer.CredentialResponseEncryption.AlgValuesSupported,
-				EncValuesSupported: issuer.CredentialResponseEncryption.EncValuesSupported,
-				EncryptionRequired: issuer.CredentialResponseEncryption.EncryptionRequired,
-			},
 			CredentialsSupported:           cs,
 			LastSeen:                       now,
 			FirstSeen:                      now,
 			Display:                        issuer.Display,
 			SignedMetadata:                 issuer.SignedMetadata,
 			CredentialIdentifiersSupported: issuer.CredentialIdentifiersSupported,
+		}
+
+		if issuer.CredentialResponseEncryption != nil {
+			storedIssuer.CredentialResponseEncryption = &issuers.CredentialRespEnc{
+				AlgValuesSupported: issuer.CredentialResponseEncryption.AlgValuesSupported,
+				EncValuesSupported: issuer.CredentialResponseEncryption.EncValuesSupported,
+				EncryptionRequired: issuer.CredentialResponseEncryption.EncryptionRequired,
+			}
 		}
 
 		if err := s.store.InsertIssuerRecord(ctx, *storedIssuer); err != nil {
